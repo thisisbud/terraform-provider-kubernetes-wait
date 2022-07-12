@@ -35,8 +35,8 @@ jobs:
         with:
           version: latest
 
-      - name: Generate
-        run: make generate
+      # - name: Generate
+      #   run: make generate
 
       # - name: Confirm no diff
       #   run: |
