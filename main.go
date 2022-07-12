@@ -5,9 +5,8 @@ import (
 	"flag"
 	"log"
 
+	"github.com/MehdiAtBud/terraform-provider-kubernetes-wait/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-
-	"github.com/MehdiAtBud/terraform-provider-http/internal/provider"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
