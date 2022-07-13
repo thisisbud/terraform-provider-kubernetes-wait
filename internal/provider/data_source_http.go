@@ -184,7 +184,7 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 	b.InitialInterval = time.Duration(model.InitialInterval.Value) * time.Millisecond
 	b.RandomizationFactor = randomization_factor
 	b.Multiplier = multiplier
-	b.MaxInterval = time.Duration(model.MaxInterval.Value)
+	b.MaxInterval = time.Duration(model.MaxInterval.Value) * time.Millisecond
 
 	s, err := json.MarshalIndent(b, "", "   ")
 	tflog.Info(ctx, fmt.Sprintf("Backoff configuration :  %s", s))
@@ -196,6 +196,7 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 	retries := 0
 	err = backoff.Retry(func() error {
 		tflog.Info(ctx, "Retrieving services from Kubernets cluster")
+		requestResource(ctx, clientset, model.Namespace.Value, model.ResourceName.Value)
 		_, err := clientset.CoreV1().Services(model.Namespace.Value).Get(ctx, model.ResourceName.Value, v1.GetOptions{})
 		tflog.Info(ctx, fmt.Sprintf("Number of retries %d", retries))
 		retries++
@@ -226,4 +227,9 @@ type modelV0 struct {
 	RandomizationFactor types.String `tfsdk:"randomization_factor"`
 	Multiplier          types.String `tfsdk:"multiplier"`
 	MaxInterval         types.Int64  `tfsdk:"max_interval"`
+}
+
+func requestResource(ctx context.Context, clientset kubernetes.Interface, namespace, resourceName string) error {
+	_, err := clientset.CoreV1().Services(namespace).Get(ctx, resourceName, v1.GetOptions{})
+	return err
 }
