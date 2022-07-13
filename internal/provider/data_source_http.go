@@ -2,8 +2,11 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -72,6 +75,32 @@ func (d *kubernetesWaitDataSourceType) GetSchema(context.Context) (tfsdk.Schema,
 				Type:        types.StringType,
 				Computed:    true,
 			},
+			"initial_interval": {
+				Description: "The initial exponential backoff interval.",
+				Type:        types.Int64Type,
+				Optional:    true,
+			},
+
+			"max_elapsed_time": {
+				Description: "The maximum time to wait for.",
+				Type:        types.Int64Type,
+				Optional:    true,
+			},
+			"randomization_factor": {
+				Description: "Randomization factor for exponential backoff.",
+				Type:        types.Float64Type,
+				Optional:    true,
+			},
+			"multiplier": {
+				Description: "Multiplier for exponential backoff.",
+				Type:        types.Float64Type,
+				Optional:    true,
+			},
+			"max_interval": {
+				Description: "Maximum interval factor for exponential backoff.",
+				Type:        types.Int64Type,
+				Optional:    true,
+			},
 		},
 	}, nil
 }
@@ -110,20 +139,48 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 		return
 	}
 
-	pods, err := clientset.CoreV1().Pods(model.Namespace.Value).List(context.Background(), v1.ListOptions{})
+	if model.InitialInterval.Value == 0 {
+		model.InitialInterval.Value = int64(backoff.DefaultInitialInterval)
+	}
+
+	if model.MaxElapsedTime.Value == 0 {
+		model.MaxElapsedTime.Value = int64(backoff.DefaultMaxElapsedTime)
+	}
+
+	if model.RandomizationFactor.Value == 0 {
+		model.RandomizationFactor.Value = float64(backoff.DefaultRandomizationFactor)
+	}
+
+	if model.Multiplier.Value == 0 {
+		model.Multiplier.Value = float64(backoff.DefaultMultiplier)
+	}
+
+	if model.MaxElapsedTime.Value == 0 {
+		model.MaxInterval.Value = int64(backoff.DefaultMaxElapsedTime)
+	}
+
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = time.Duration(model.MaxElapsedTime.Value) * time.Second
+	b.InitialInterval = time.Duration(model.InitialInterval.Value) * time.Millisecond
+	b.RandomizationFactor = model.RandomizationFactor.Value
+	b.Multiplier = model.Multiplier.Value
+	b.MaxInterval = time.Duration(model.MaxInterval.Value)
+
+	s, err := json.MarshalIndent(b, "", "   ")
+	tflog.Info(ctx, fmt.Sprintf("Backoff configuration :  %s", s))
+
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"error getting pods",
-			fmt.Sprintf("%s", err),
-		)
-		return
+		tflog.Error(ctx, fmt.Sprintf("Json.MarshalIndent error :  %s", err))
 	}
 
-	for _, pod := range pods.Items {
-		tflog.Info(ctx, fmt.Sprintf("Pod name: %s\n", pod.Name))
-	}
-
-	services, err := clientset.CoreV1().Services(model.Namespace.Value).List(context.Background(), v1.ListOptions{})
+	retries := 0
+	err = backoff.Retry(func() error {
+		tflog.Info(ctx, "Retrieving services from Kubernets cluster")
+		_, err := clientset.CoreV1().Services(model.Namespace.Value).Get(ctx, model.ResourceName.Value, v1.GetOptions{})
+		tflog.Info(ctx, fmt.Sprintf("Number of retries %d", retries))
+		retries++
+		return err
+	}, b)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"error getting services",
@@ -131,21 +188,22 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 		)
 	}
 
-	for _, s := range services.Items {
-		tflog.Info(ctx, fmt.Sprintf("Service name: %s\n", s.Name))
-	}
-
 	diags = resp.State.Set(ctx, model)
 	resp.Diagnostics.Append(diags...)
 }
 
 type modelV0 struct {
-	ID              types.String `tfsdk:"id"`
-	KubernetesURL   types.String `tfsdk:"kubernetes_url"`
-	ResourceType    types.String `tfsdk:"resource_type"`
-	ResourceName    types.String `tfsdk:"resource_name"`
-	Namespace       types.String `tfsdk:"namespace"`
-	ResponseHeaders types.Map    `tfsdk:"response_headers"`
-	ResponseBody    types.String `tfsdk:"response_body"`
-	StatusCode      types.Int64  `tfsdk:"status_code"`
+	ID                  types.String  `tfsdk:"id"`
+	KubernetesURL       types.String  `tfsdk:"kubernetes_url"`
+	ResourceType        types.String  `tfsdk:"resource_type"`
+	ResourceName        types.String  `tfsdk:"resource_name"`
+	Namespace           types.String  `tfsdk:"namespace"`
+	ResponseHeaders     types.Map     `tfsdk:"response_headers"`
+	ResponseBody        types.String  `tfsdk:"response_body"`
+	StatusCode          types.Int64   `tfsdk:"status_code"`
+	InitialInterval     types.Int64   `tfsdk:"initial_interval"`
+	MaxElapsedTime      types.Int64   `tfsdk:"max_elapsed_time"`
+	RandomizationFactor types.Float64 `tfsdk:"randomization_factor"`
+	Multiplier          types.Float64 `tfsdk:"multiplier"`
+	MaxInterval         types.Int64   `tfsdk:"max_interval"`
 }
