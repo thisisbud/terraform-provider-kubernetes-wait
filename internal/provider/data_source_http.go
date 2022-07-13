@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -88,12 +89,12 @@ func (d *kubernetesWaitDataSourceType) GetSchema(context.Context) (tfsdk.Schema,
 			},
 			"randomization_factor": {
 				Description: "Randomization factor for exponential backoff.",
-				Type:        types.Float64Type,
+				Type:        types.StringType,
 				Optional:    true,
 			},
 			"multiplier": {
 				Description: "Multiplier for exponential backoff.",
-				Type:        types.Float64Type,
+				Type:        types.StringType,
 				Optional:    true,
 			},
 			"max_interval": {
@@ -139,6 +140,11 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 		return
 	}
 
+	var randomization_factor, multiplier float64
+
+	randomization_factor = backoff.DefaultRandomizationFactor
+	multiplier = backoff.DefaultMultiplier
+
 	if model.InitialInterval.Value == 0 {
 		model.InitialInterval.Value = int64(backoff.DefaultInitialInterval)
 	}
@@ -147,23 +153,37 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 		model.MaxElapsedTime.Value = int64(backoff.DefaultMaxElapsedTime)
 	}
 
-	if model.RandomizationFactor.Value == 0 {
-		model.RandomizationFactor.Value = float64(backoff.DefaultRandomizationFactor)
-	}
-
-	if model.Multiplier.Value == 0 {
-		model.Multiplier.Value = float64(backoff.DefaultMultiplier)
-	}
-
 	if model.MaxElapsedTime.Value == 0 {
 		model.MaxInterval.Value = int64(backoff.DefaultMaxElapsedTime)
+	}
+
+	if len(model.RandomizationFactor.Value) > 0 {
+		randomization_factor, err = strconv.ParseFloat(model.RandomizationFactor.Value, 64)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"error converting string to float64",
+				fmt.Sprintf("%s", err),
+			)
+			return
+		}
+	}
+
+	if len(model.Multiplier.Value) > 0 {
+		multiplier, err = strconv.ParseFloat(model.Multiplier.Value, 64)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"error converting string to float64",
+				fmt.Sprintf("%s", err),
+			)
+			return
+		}
 	}
 
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = time.Duration(model.MaxElapsedTime.Value) * time.Second
 	b.InitialInterval = time.Duration(model.InitialInterval.Value) * time.Millisecond
-	b.RandomizationFactor = model.RandomizationFactor.Value
-	b.Multiplier = model.Multiplier.Value
+	b.RandomizationFactor = randomization_factor
+	b.Multiplier = multiplier
 	b.MaxInterval = time.Duration(model.MaxInterval.Value)
 
 	s, err := json.MarshalIndent(b, "", "   ")
@@ -193,17 +213,17 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 }
 
 type modelV0 struct {
-	ID                  types.String  `tfsdk:"id"`
-	KubernetesURL       types.String  `tfsdk:"kubernetes_url"`
-	ResourceType        types.String  `tfsdk:"resource_type"`
-	ResourceName        types.String  `tfsdk:"resource_name"`
-	Namespace           types.String  `tfsdk:"namespace"`
-	ResponseHeaders     types.Map     `tfsdk:"response_headers"`
-	ResponseBody        types.String  `tfsdk:"response_body"`
-	StatusCode          types.Int64   `tfsdk:"status_code"`
-	InitialInterval     types.Int64   `tfsdk:"initial_interval"`
-	MaxElapsedTime      types.Int64   `tfsdk:"max_elapsed_time"`
-	RandomizationFactor types.Float64 `tfsdk:"randomization_factor"`
-	Multiplier          types.Float64 `tfsdk:"multiplier"`
-	MaxInterval         types.Int64   `tfsdk:"max_interval"`
+	ID                  types.String `tfsdk:"id"`
+	KubernetesURL       types.String `tfsdk:"kubernetes_url"`
+	ResourceType        types.String `tfsdk:"resource_type"`
+	ResourceName        types.String `tfsdk:"resource_name"`
+	Namespace           types.String `tfsdk:"namespace"`
+	ResponseHeaders     types.Map    `tfsdk:"response_headers"`
+	ResponseBody        types.String `tfsdk:"response_body"`
+	StatusCode          types.Int64  `tfsdk:"status_code"`
+	InitialInterval     types.Int64  `tfsdk:"initial_interval"`
+	MaxElapsedTime      types.Int64  `tfsdk:"max_elapsed_time"`
+	RandomizationFactor types.String `tfsdk:"randomization_factor"`
+	Multiplier          types.String `tfsdk:"multiplier"`
+	MaxInterval         types.Int64  `tfsdk:"max_interval"`
 }
