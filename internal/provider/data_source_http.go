@@ -28,6 +28,45 @@ func (d *kubernetesWaitDataSourceType) GetSchema(context.Context) (tfsdk.Schema,
 				Required:    true,
 			},
 
+			"resource_type": {
+				Description: "Todo",
+				Type:        types.StringType,
+				Optional:    true,
+			},
+
+			"resource_name": {
+				Description: "Todo",
+				Type:        types.StringType,
+				Optional:    true,
+			},
+
+			"namespace": {
+				Description: "Todo",
+				Type:        types.StringType,
+				Optional:    true,
+			},
+
+			"response_body": {
+				Description: "The response body returned as a string.",
+				Type:        types.StringType,
+				Computed:    true,
+			},
+
+			"response_headers": {
+				Description: `A map of response header field names and values.` +
+					` Duplicate headers are concatenated according to [RFC2616](https://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2).`,
+				Type: types.MapType{
+					ElemType: types.StringType,
+				},
+				Computed: true,
+			},
+
+			"status_code": {
+				Description: `The HTTP response status code.`,
+				Type:        types.Int64Type,
+				Computed:    true,
+			},
+
 			"id": {
 				Description: "The ID of this resource.",
 				Type:        types.StringType,
