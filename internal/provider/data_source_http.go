@@ -196,8 +196,7 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 	retries := 0
 	err = backoff.Retry(func() error {
 		tflog.Info(ctx, "Retrieving services from Kubernets cluster")
-		requestResource(ctx, clientset, model.Namespace.Value, model.ResourceName.Value)
-		_, err := clientset.CoreV1().Services(model.Namespace.Value).Get(ctx, model.ResourceName.Value, v1.GetOptions{})
+		err := requestResource(ctx, clientset, model.Namespace.Value, model.ResourceName.Value)
 		tflog.Info(ctx, fmt.Sprintf("Number of retries %d", retries))
 		retries++
 		return err
