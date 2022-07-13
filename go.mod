@@ -1,6 +1,6 @@
 module github.com/MehdiAtBud/terraform-provider-kubernetes-wait
 
-go 1.18
+go 1.17
 
 require (
 	github.com/hashicorp/terraform-plugin-docs v0.13.0
