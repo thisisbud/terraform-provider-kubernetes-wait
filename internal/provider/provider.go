@@ -28,6 +28,6 @@ func (p *provider) GetResources(context.Context) (map[string]tfsdk.ResourceType,
 
 func (p *provider) GetDataSources(context.Context) (map[string]tfsdk.DataSourceType, diag.Diagnostics) {
 	return map[string]tfsdk.DataSourceType{
-		"http": &httpDataSourceType{},
+		"kubernetes-wait": &kubernetesWaitDataSourceType{},
 	}, nil
 }
