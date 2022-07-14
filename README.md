@@ -1,24 +1,7 @@
-# Terraform Provider: HTTP
+# Terraform Provider: Kubernetes Wait
 
-The HTTP provider interacts with generic HTTP servers. 
-It provides a data source that issues an HTTP request exposing the response headers and body
-for use within a Terraform deployment.
-
-## Documentation, questions and discussions
-
-Official documentation on how to use this provider can be found on the
-[Terraform Registry](https://registry.terraform.io/providers/hashicorp/http/latest/docs).
-In case of specific questions or discussions, please use the
-HashiCorp [Terraform Providers Discuss forums](https://discuss.hashicorp.com/c/terraform-providers/31),
-in accordance with HashiCorp [Community Guidelines](https://www.hashicorp.com/community-guidelines).
-
-We also provide:
-
-* [Support](.github/SUPPORT.md) page for help when using the provider
-* [Contributing](.github/CONTRIBUTING.md) guidelines in case you want to help this project
-* [Design](DESIGN.md) documentation to understand the scope and maintenance decisions
-
-The remainder of this document will focus on the development aspects of the provider.
+The Kubernetes provider interacts with a Kubernetes Cluster. 
+It provides a data source that issues a request to the cluster waiting for a resource to be available or to exceed the timeout and return an error.
 
 ## Requirements
 
@@ -26,6 +9,41 @@ The remainder of this document will focus on the development aspects of the prov
 * [Go](https://go.dev/doc/install) (1.17)
 * [GNU Make](https://www.gnu.org/software/make/)
 * [golangci-lint](https://golangci-lint.run/usage/install/#local-installation) (optional)
+
+
+## Example Usage
+
+Note the environment variable `KUBERNETES_URL` must be set.
+
+```
+terraform {
+  required_providers {
+    kubernetes-wait = {
+      source  = "MehdiAtBud/kubernetes-wait"
+      version = "0.1.7"
+    }
+  }
+}
+
+# The following example shows how to issue an HTTP GET request supplying
+# an optional request header.
+data "kubernetes-wait" "example" {
+  resource_name    = "service"
+  namespace        = "example-namespace"
+  max_elapsed_time = 10
+  initial_interval = 100
+  multiplier       = "1.2"
+  max_interval     = 5000
+}
+```
+
+- `resource_name` : The name of the resource to wait for. Only Service resources are currently supported.
+- `namespace` : Kubernetes namespace in which the resource is residing.
+- `max_elapsed_time` : Maximum seconds to wait for in total.
+- `initial_interval` : Duration of initial interval in milliseconds.
+- `multiplier` : Decimal number representing the multiplication factor for exponential backoff logic.
+- `max_interval` : Maximum interval in milliseconds after multiplier has been applied.
+
 
 ## Development
 

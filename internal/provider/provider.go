@@ -63,7 +63,7 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	if config.Host.Unknown {
 		resp.Diagnostics.AddWarning(
 			"Unable to create client",
-			"Cannot use unknown value as host",
+			"Cannot use unknown value as kubernetes url",
 		)
 	}
 
@@ -76,7 +76,7 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	if host == "" {
 		resp.Diagnostics.AddError(
 			"Unable to find host",
-			"HostURL cannot be an empty string",
+			"KUBERNETES_URL cannot be an empty string",
 		)
 		return
 	}

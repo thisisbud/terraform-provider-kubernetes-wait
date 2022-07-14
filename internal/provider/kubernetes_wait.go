@@ -25,12 +25,6 @@ func (d *kubernetesWaitDataSourceType) GetSchema(context.Context) (tfsdk.Schema,
 		Description: `k8-wait todo doc`,
 
 		Attributes: map[string]tfsdk.Attribute{
-			"kubernetes_url": {
-				Description: "The URL for the request. Supported schemes are `http` and `https`.",
-				Type:        types.StringType,
-				Required:    true,
-			},
-
 			"resource_type": {
 				Description: "Todo",
 				Type:        types.StringType,
@@ -201,7 +195,6 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 
 type modelV0 struct {
 	ID                  types.String `tfsdk:"id"`
-	KubernetesURL       types.String `tfsdk:"kubernetes_url"`
 	ResourceType        types.String `tfsdk:"resource_type"`
 	ResourceName        types.String `tfsdk:"resource_name"`
 	Namespace           types.String `tfsdk:"namespace"`
