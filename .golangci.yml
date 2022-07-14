@@ -10,11 +10,11 @@ linters:
     - gofmt
     - makezero
     - misspell
-    - nilerr
     - predeclared
     - tenv
     - unconvert
-    - unparam
+  disable:
+    - structcheck
 
 issues:
   max-issues-per-linter: 0
