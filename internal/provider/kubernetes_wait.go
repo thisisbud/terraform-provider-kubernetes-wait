@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var _ tfsdk.DataSourceType = (*kubernetesWaitDataSourceType)(nil)
@@ -106,13 +105,18 @@ func (d *kubernetesWaitDataSourceType) GetSchema(context.Context) (tfsdk.Schema,
 	}, nil
 }
 
-func (d *kubernetesWaitDataSourceType) NewDataSource(context.Context, tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
-	return &kubernetesWaitDataSource{}, nil
+func (d *kubernetesWaitDataSourceType) NewDataSource(ctx context.Context, p tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
+
+	return &kubernetesWaitDataSource{
+		p: *(p.(*provider)),
+	}, nil
 }
 
 var _ tfsdk.DataSource = (*kubernetesWaitDataSource)(nil)
 
-type kubernetesWaitDataSource struct{}
+type kubernetesWaitDataSource struct {
+	p provider
+}
 
 func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
 	var model modelV0
@@ -122,25 +126,8 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 		return
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags(model.KubernetesURL.Value, "")
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"error getting config from BuildConfigFromFlags",
-			fmt.Sprintf("%s", err),
-		)
-		return
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"error getting Kubernetes clientset",
-			fmt.Sprintf("%s", err),
-		)
-		return
-	}
-
 	var randomization_factor, multiplier float64
+	var err error
 
 	randomization_factor = backoff.DefaultRandomizationFactor
 	multiplier = backoff.DefaultMultiplier
@@ -196,7 +183,7 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 	retries := 0
 	err = backoff.Retry(func() error {
 		tflog.Info(ctx, "Retrieving services from Kubernets cluster")
-		err := requestResource(ctx, clientset, model.Namespace.Value, model.ResourceName.Value)
+		err := requestResource(ctx, &d.p.client, model.Namespace.Value, model.ResourceName.Value)
 		tflog.Info(ctx, fmt.Sprintf("Number of retries %d", retries))
 		retries++
 		return err
