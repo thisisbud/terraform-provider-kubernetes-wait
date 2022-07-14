@@ -2,8 +2,8 @@ package provider
 
 import (
 	"context"
+	"encoding/pem"
 	"fmt"
-	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -38,21 +38,30 @@ func (p *provider) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostic
 		Attributes: map[string]tfsdk.Attribute{
 			"host": {
 				Type:                types.StringType,
-				Description:         "The Kubernetes URL. Can be sourced from KUBERNETES_URL.",
-				MarkdownDescription: "The Kubernetes URL. Can be sourced from `KUBERNETES_URL`.",
-				Optional:            true,
-				Computed:            true,
+				Description:         "The Kubernetes host URL",
+				MarkdownDescription: "The Kubernetes host URL.",
+				Required:            true,
+			},
+			"cluster_ca_certificate": {
+				Type:                types.StringType,
+				Description:         "PEM-encoded root certificates bundle for TLS authentication.",
+				MarkdownDescription: "PEM-encoded root certificates bundle for TLS authentication.",
+				Required:            true,
 			},
 		},
 	}, nil
 }
 
 type providerData struct {
-	Host types.String `tfsdk:"host"`
+	Host                 types.String `tfsdk:"host"`
+	ClusterCACertificate types.String `tfsdk:"cluster_ca_certificate"`
 }
 
 func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderRequest, resp *tfsdk.ConfigureProviderResponse) {
 	var config providerData
+	overrides := &clientcmd.ConfigOverrides{}
+	loader := &clientcmd.ClientConfigLoadingRules{}
+
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -67,30 +76,44 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 		)
 	}
 
-	if config.Host.Null {
-		host = os.Getenv("KUBERNETES_URL")
-	} else {
+	if !config.Host.IsNull() && !config.Host.IsUnknown() {
 		host = config.Host.Value
 	}
 
 	if host == "" {
 		resp.Diagnostics.AddError(
 			"Unable to find host",
-			"KUBERNETES_URL cannot be an empty string",
+			"Host cannot be an empty string",
 		)
 		return
 	}
 
-	configk8, err := clientcmd.BuildConfigFromFlags(host, "")
+	var clusterCaCertificate string
+	if !config.ClusterCACertificate.IsNull() && !config.ClusterCACertificate.IsUnknown() {
+		clusterCaCertificate = config.ClusterCACertificate.Value
+	}
+
+	ca, _ := pem.Decode([]byte(clusterCaCertificate))
+	if ca == nil || ca.Type != "CERTIFICATE" {
+		resp.Diagnostics.AddError(
+			"Invalid attribute in provider configuration",
+			"'cluster_ca_certificate' is not a valid PEM encoded certificate",
+		)
+	}
+
+	overrides.ClusterInfo.CertificateAuthorityData = []byte(clusterCaCertificate)
+	overrides.ClusterInfo.Server = host
+	configk8 := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, overrides)
+	cc, err := configk8.ClientConfig()
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"error getting config from BuildConfigFromFlags",
+			"error getting config from ClientConfig",
 			fmt.Sprintf("%s", err),
 		)
 		return
 	}
 
-	clientset, err := kubernetes.NewForConfig(configk8)
+	clientset, err := kubernetes.NewForConfig(cc)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"error getting Kubernetes clientset",
