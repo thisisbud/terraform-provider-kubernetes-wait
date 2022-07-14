@@ -48,6 +48,12 @@ func (p *provider) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostic
 				MarkdownDescription: "PEM-encoded root certificates bundle for TLS authentication.",
 				Required:            true,
 			},
+			"token": {
+				Type:                types.StringType,
+				Description:         "Token to authenticate an service account.",
+				MarkdownDescription: "Token to authenticate an service account.",
+				Required:            true,
+			},
 		},
 	}, nil
 }

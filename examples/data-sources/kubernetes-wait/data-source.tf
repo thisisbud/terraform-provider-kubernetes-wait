@@ -1,4 +1,4 @@
-terraform {
+/*terraform {
   required_providers {
     kubernetes-wait = {
       source  = "MehdiAtBud/kubernetes-wait"
@@ -17,3 +17,4 @@ data "kubernetes-wait" "example" {
   multiplier       = 1.2
   max_interval     = 500000
 }
+*/
