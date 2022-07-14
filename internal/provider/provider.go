@@ -55,6 +55,7 @@ func (p *provider) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostic
 type providerData struct {
 	Host                 types.String `tfsdk:"host"`
 	ClusterCACertificate types.String `tfsdk:"cluster_ca_certificate"`
+	Token                types.String `tfsdk:"token"`
 }
 
 func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderRequest, resp *tfsdk.ConfigureProviderResponse) {
@@ -101,8 +102,23 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 		)
 	}
 
-	overrides.ClusterInfo.CertificateAuthorityData = []byte(clusterCaCertificate)
+	var token string
+	if !config.Token.IsNull() && !config.Token.IsUnknown() {
+		token = config.Token.Value
+	}
+
+	if token == "" {
+		resp.Diagnostics.AddError(
+			"Unable to find token",
+			"Token cannot be an empty string",
+		)
+		return
+	}
+
 	overrides.ClusterInfo.Server = host
+	overrides.ClusterInfo.CertificateAuthorityData = []byte(clusterCaCertificate)
+	overrides.AuthInfo.Token = token
+
 	configk8 := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, overrides)
 	cc, err := configk8.ClientConfig()
 	if err != nil {
