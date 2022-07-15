@@ -18,6 +18,21 @@ import (
 
 var _ tfsdk.DataSourceType = (*kubernetesWaitDataSourceType)(nil)
 
+type modelV0 struct {
+	ID                  types.String `tfsdk:"id"`
+	ResourceType        types.String `tfsdk:"resource_type"`
+	ResourceName        types.String `tfsdk:"resource_name"`
+	Namespace           types.String `tfsdk:"namespace"`
+	ResponseHeaders     types.Map    `tfsdk:"response_headers"`
+	ResponseBody        types.String `tfsdk:"response_body"`
+	StatusCode          types.Int64  `tfsdk:"status_code"`
+	InitialInterval     types.Int64  `tfsdk:"initial_interval"`
+	MaxElapsedTime      types.Int64  `tfsdk:"max_elapsed_time"`
+	RandomizationFactor types.String `tfsdk:"randomization_factor"`
+	Multiplier          types.String `tfsdk:"multiplier"`
+	MaxInterval         types.Int64  `tfsdk:"max_interval"`
+}
+
 type kubernetesWaitDataSourceType struct{}
 
 func (d *kubernetesWaitDataSourceType) GetSchema(context.Context) (tfsdk.Schema, diag.Diagnostics) {
@@ -176,36 +191,21 @@ func (d *kubernetesWaitDataSource) Read(ctx context.Context, req tfsdk.ReadDataS
 
 	retries := 0
 	err = backoff.Retry(func() error {
-		tflog.Info(ctx, "Retrieving services from Kubernets cluster")
+		tflog.Info(ctx, "Retrieving services from Kubernetes cluster")
 		err := requestResource(ctx, &d.p.client, model.Namespace.Value, model.ResourceName.Value)
-		tflog.Info(ctx, fmt.Sprintf("Number of retries %d", retries))
+		tflog.Info(ctx, fmt.Sprintf("\nNumber of retries %d\n", retries))
 		retries++
 		return err
 	}, b)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"error getting services",
+			fmt.Sprintf("error getting service %s in namespace %s", model.ResourceName.Value, model.Namespace.Value),
 			fmt.Sprintf("%s", err),
 		)
 	}
 
 	diags = resp.State.Set(ctx, model)
 	resp.Diagnostics.Append(diags...)
-}
-
-type modelV0 struct {
-	ID                  types.String `tfsdk:"id"`
-	ResourceType        types.String `tfsdk:"resource_type"`
-	ResourceName        types.String `tfsdk:"resource_name"`
-	Namespace           types.String `tfsdk:"namespace"`
-	ResponseHeaders     types.Map    `tfsdk:"response_headers"`
-	ResponseBody        types.String `tfsdk:"response_body"`
-	StatusCode          types.Int64  `tfsdk:"status_code"`
-	InitialInterval     types.Int64  `tfsdk:"initial_interval"`
-	MaxElapsedTime      types.Int64  `tfsdk:"max_elapsed_time"`
-	RandomizationFactor types.String `tfsdk:"randomization_factor"`
-	Multiplier          types.String `tfsdk:"multiplier"`
-	MaxInterval         types.Int64  `tfsdk:"max_interval"`
 }
 
 func requestResource(ctx context.Context, clientset kubernetes.Interface, namespace, resourceName string) error {
