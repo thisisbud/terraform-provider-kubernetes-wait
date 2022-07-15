@@ -13,8 +13,6 @@ It provides a data source that issues a request to the cluster waiting for a res
 
 ## Example Usage
 
-Note the environment variable `KUBERNETES_URL` must be set.
-
 ```
 terraform {
   required_providers {
@@ -29,7 +27,7 @@ provider "kubernetes-wait" {
   host  = "https://${data.google_container_cluster.my_cluster.endpoint}"
   token = data.google_client_config.default.access_token
   cluster_ca_certificate = base64decode(
-    data.google_container_cluster.my_cluster.master_auth[0].cluster_ca_certificate,
+    data.google_container_cluster.my_cluster.master_auth[0cluster_ca_certificate,
   )
 }
 
@@ -50,7 +48,6 @@ data "kubernetes-wait" "example" {
   multiplier       = "1.2"
   max_interval     = 5000
 }
-
 ```
 
 - `resource_name` : The name of the resource to wait for. Only Service resources are currently supported.
